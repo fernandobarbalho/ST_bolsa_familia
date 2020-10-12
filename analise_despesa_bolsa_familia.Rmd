@@ -1,0 +1,537 @@
+---
+title: "Análise da série temporal do Programa Bolsa Família"
+author: Alexandre da Costa Pereira alexandre.pereira@ifrn.edu.br, Edilson Correia
+  Alves Lima lima-ec@uol.com.br, Fernando Almeida Barbalho fernando.barbalho@tesouro.gov.br,
+  Joana Akiyo Nemoto joananemoto@gmail.com, Leandro Pinheiro Safatle leandro.safatle@gmail.com,
+  Livia Medeiros Mendes livia.mendes@tesouro.gov.br, Robson dos Santos relvalins@gmail.com,
+  Renato Barbosa Medeiros renato.barbosa.medeiros@gmail.com
+date: "03/10/2020"
+output:
+  html_document:
+    code_folding: hide    
+    theme: cerulean
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+  word_document:
+    toc: yes
+    toc_depth: '2'
+always_allow_html: yes    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(readr)
+Despesas_BF <- read_delim("Despesas-2020-10-01.csv", 
+    ";", escape_double = FALSE, locale = locale(decimal_mark = ",", 
+        grouping_mark = "."), trim_ws = TRUE)
+
+
+
+```
+
+# Objetivo
+
+Apresentar os resultados de exercício realizado para a finalização do curso “Econometria Aplicada à Avaliação e Gestão de Políticas Públicas”, ministrado pelo prof. Geraldo Sandoval Góes no período de 04/09 a 08/10/2020.
+O exercício trata da análise mediante modelo de regressão com base econométrica, recorrendo-se ao software R para a análise de série temporal de programa integrante de política pública, no caso o “Bolsa Família”, tendo sido utilizado o período de 2008 a 2019.
+Especifiamente, o objetivo do trabalho é verificar se a partir da execução das despesas do bolsa família é possível afirmar que esse é um programa que pode ser conseiderado como legitimado como parte de uma política pública de assistência social.
+
+# Sobre o Programa “Bolsa Família”
+
+O Bolsa Família é um programa da Secretaria Nacional de Renda de Cidadania (Senarc), que contribui para o combate à pobreza e à desigualdade no Brasil. Ele foi criado em outubro de 2003 e possui três eixos principais: complemento da renda; acesso a direitos; e articulação com outras ações a fim de estimular o desenvolvimento das famílias. A gestão do Bolsa Família é descentralizada, ou seja, tanto a União, quanto os estados, o Distrito Federal e os municípios têm atribuições em sua execução. Em nível federal, o Ministério da Cidadania é o responsável pelo Programa, e a Caixa Econômica Federal é o agente que executa os pagamentos.
+O Programa Bolsa Família atende às famílias que vivem em situação de pobreza e de extrema pobreza. Foi utilizado um limite de renda para definir esses dois patamares. Assim, podem fazer parte do programa: todas as famílias com renda por pessoa de até R$ 89,00 mensais; e famílias com renda por pessoa entre R$ 89,01 e R$ 178,00 mensais, desde que tenham crianças ou adolescentes de 0 a 17 anos.
+O Bolsa Família é um programa federal, mas, para que ele funcione efetivamente, a União, os estados, o Distrito Federal e os municípios precisam conjugar esforços, trabalhando de forma compartilhada. Assim, todos são corresponsáveis pela implementação do programa, criando bases de cooperação para o combate à pobreza e à exclusão social. A gestão do programa é descentralizada, com competências específicas para cada ente da Federação, mas sempre articuladas.
+Para o acompanhamento do programa, o Ministério da Cidadania gera periodicamente uma base de dados com o público para monitoramento de condicionalidades, ou seja, uma tabela com informações das crianças e dos adolescentes de 6 a 17 anos que deverão ter a frequência escolar verificada, informações das crianças de 0 a 6 anos que deverão ter o calendário vacinal, o peso e a altura acompanhados, além de dados das mulheres em idade fértil para identificação das gestantes e acompanhamento do pré-natal.
+
+# A série temporal de despesas com bolsa família
+
+Nesse trabalho optamos por fazer análises diversas da série temporal das despesas do governo federal com o Bolsa Família. Os dados são oriundos do Resultado do Tesouro Nacional, referentes à divulgação do mês de agosto de 2020.
+A partir do site <a href="https://www.tesourotransparente.gov.br/historias/ressignificando-o-resultado-do-tesouro-nacional" target="_blank">Ressignificando o Resultado do Tesouro Nacional</a>, na seção que mostra as diversas despesas primárias do governo central, fizemos o filtro da série temporal referente à rubrica do **Bolsa Família**. Após isso fizemos o download dos dados mensais já corrigidos pelo IPCA, tal como descrito na figura abaixo.
+
+![](serie_bolsa_familia.png)
+
+
+## Caracterização da série temporal
+
+Uma vez que temos disponível os dados da série vale fazer algumas análises gráficas que permite uma caracterização mais geral dos dados. O gráfico abaixo permite uma manipulação dinâmica dos elementos da série temporal. Pode-se inclusive fazer filtros dinâmicos usando o cursor que fica abaixo da figura
+
+
+
+
+```{r}
+library(dygraphs)
+library(dplyr)
+library(stats)
+library(tseries)
+
+#Filtra para permanecer apenas a série temporal com valores válidos
+desp_ts_bf<-
+Despesas_BF %>%
+  filter(Data>="2008-01-01")
+
+#criar um objeto de série temporal
+ts_bf<- ts(round(desp_ts_bf[,3],0),start = c(2008,01),frequency = 12)
+
+title<- "Figura 1: Valores em R$ milhões"
+
+#Monta o gráfico dinâmico
+ dygraph(ts_bf,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)
+
+
+```
+
+É interessante verificar como é a distribuição dos valores. Como estamos com uma série temporal já deflacionada, os valores ao longo do tempo podem ser comparados em gráficos como box-plot ou violino, como veremos logo a seguir.
+
+Logo abaixo o gráfico box-plot
+
+```{r}
+library(ggplot2)
+
+desp_ts_bf%>%
+  mutate(Rubrica = "Bolsa Família") %>%
+  ggplot()+
+  geom_boxplot(aes(x= Rubrica, y= valor), fill = "lightgreen") +
+  theme_light()+
+  theme(
+    panel.grid = element_blank()
+  )+
+  labs(title = "Figura 2: Valores em R$ milhões")
+  
+
+```
+
+E agora o gráfico de violino
+
+```{r}
+desp_ts_bf%>%
+  mutate(Rubrica = "Bolsa Família") %>%
+  ggplot()+
+  geom_violin(aes(x= Rubrica, y= valor), fill = "lightgreen") +
+  theme_light()+
+  theme(
+    panel.grid = element_blank()
+  )+
+  labs(title = "Figura 3: Valores em R$ milhões")
+```
+
+Pelo gráfico de box plot fica claro que há uma grande concentração de valores entre a mediana (R$ `r format(round(median(desp_ts_bf$valor)/1000,1), decimal.mark = ",")` bi) e o terceiro quartil (R$ `r format(round(quantile(desp_ts_bf$valor, probs=0.75)/1000,1), decimal.mark = ",")` bi).
+
+O gráfico de violino refoça esse achado e mostra também que há uma outra faixa de valores em torno R$ 1,8 bi com uma concentração importante.
+
+O gráfico de box-plot mostra quatro pontos de outliers superiores e alguns pontos concentrados de outliers inferiores. Com o apoio do gráfico de linhas da Figura 1 fica fácil de ver que em relação aos outliers superiores que se tratam de eventos aparentemente sazonais que ocorrem nos meses de janeiro entre 2012 e 2016 e um outro ponto mais recente que ocorreu em dezembro de 2019.
+
+Já em relação aos outilers inferiores, todos os pontos ocorreram a partir de abril de 2020, como pode também ser visto no gráfico de linhas da Figura 1.
+
+Essas informações dos outliers serão importantes para as análises que são feitas logo em seguida relativas ao comportamento da política pública de assistência social associada ao **Bolsa Família**.
+
+
+## Testes de estacionariedade 
+
+Uma vez feitas as primeiras caracterizações da série temporal no ponto de vista de análises gráficas, passamos para um outro conjunto de análises. Agora focamos sobre os testes de estacionariedade que permitem verificar se os dados vão precisar ou não de transformações para fazer eventuais análises preditivas.
+
+Existem vários testes possíveis para verificar se uma série é ou não estacionária. Vamos começar com o kpss.
+
+```{r}
+ tseries::kpss.test(ts_bf, null = "Level")
+```
+
+O primeiro teste kpss busca verificar se a série pode ser caracterizada como ruído branco. Esse teste é feito ao usar o parâmetro level para a hipótese nula.
+
+Se considerarmos o limite de aceitação da hipótese nula para 95%, podemos indicar que o teste rejeita a hipótese nula de uma série estacionária caracterizada por ruído branco.
+
+O teste kpss também pode ser feito para verificar se a série pode ser caracerizada como estacionária em torno de uma tendência. É o que vamos fazer abaixo colocando o argumento "Trend" para a hipótese nula.
+
+
+```{r}
+ tseries::kpss.test(ts_bf, null = "Trend")
+```
+
+Aqui novamente o teste rejeita a hipótese nula partir da interpretação do p-value. Essa rejeição indica que a série não se caracteriza como sendo estacionária em torno de uma tendência.
+
+O próximo teste é o adf. Aqui a hipótese nula é de não estacionariedade. 
+
+```{r}
+
+tseries::adf.test(ts_bf)
+```
+
+Pelo teste adf aceita-se a hipótese nula de não estacionariedade da série.
+
+Por fim o último teste é o Phiple-Perron. Aqui a hipótese nula é da não estacionariedade.
+
+```{r}
+tseries::pp.test(ts_bf)
+```
+
+Esse último teste contradiz os anteriores e indica que a série é estacionária. 
+
+Pela prevalência de testes indicando a não estacionariedade, vamos aqui entender que os pressupostos de uma série não estacionaria não foram atendidos. O mais provável é que ocorreu uma quebra de estrutura após os primeiros anos da impleemntação do bolsa família. Um sintoma disso é o que já foi mostrado na Figura 3 onde o gráfico de violino destaca uma concentração de valores em torno R$ 1,8 bi. Outra quebra de estrutura importante é relativa à sequência de eventos que determinaram o pico em Dezembro de 2019 e valores muito baixos, e mesmo negativo, que ocorreram a partir de Abril de 2020.
+
+O ponto referente a dezembro de 2019 é um outlier por conta do pagamento de 13o aos beneficiários que não ocorreu nos anos anteriores. Além disso, com a pandemia de COVID-19 parte dos recursos de assistência social que atendiam às famílias beneficiárias passaram a ser canalizados para outra despesa também de assitência social. No caso o **Auxílio Emergencial**. Na curva da Figura 1 , isso se reflete nos pontos de mínimas da série que também são outliers, a partir de abril de 2020. 
+
+É bem provável, portanto, que se fixássemos o período de análise começando na data em que as regras do programa são modificadas logo após os primeiros anos de sua implementação e finalizando em novembro de 2019, teríamos uma série estável com características de estacionariedade.
+
+# Avaliação da institucionalização da Bolsa Família
+
+Uma da spossiblidades de análise com a série temporal das despesas com o programa Bolsa Família é verificar se já é percebido como parte de uma política pública legítima de assistência social. Aqui vamos fazer essa inferência a partir da análisede como se comportou a série temporal ao longo dos 12 anos de sua implementação e dos quatro chefes de executivo federal ao longo do período. Aqui vamos definir com oindicadores positivos para essa institucionalização a permanência ou aumento da expectativa de gastos com o programa ao longo das trocas de presidentes.
+
+Para fazer essa medida vamos testar dois grupos de extraplações. O primeiro grupo de extrapolações compara como  alterância de presidentes impacta na execução das despesas do bolsa fam;ilia. Para esse grupo vão ser feitas três extrapolaçãoes. A primeira é comparar quanto seria gasto nos dois governso Dilma tendo como referência a série temporal do período inicial do programa até dezembro de 1009 quando encerra-se o mandato do presidente Lula. A segunda extrapolação vai ser feita considerando como parâmetros todo o período até o impeachment da presidenta Dilma. A extrapolação vai ser comparada com as despesas efetivadas no governo Temer. Por fim, vamos usar a mesma lógica e comparar uma extrapolação da série temporal até o Dezembro de 2018 com o primeiro ano do atual governo.
+
+```{r}
+title<- ""
+
+#Monta o gráfico dinâmico
+ dygraph(ts_bf,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)  %>%
+    dyShading(from = "2008-01-01", to = "2010-12-01") %>%
+    dyShading(from = "2011-01-01", to = "2016-05-01") %>%
+    dyShading(from = "2016-06-01", to = "2018-12-01") %>%
+    dyShading(from = "2019-01-01", to = "2020-08-01") %>%
+    dyAnnotation("2010-01-01", text = "Governo Lula", width = 90,height = 20)%>%
+    dyAnnotation("2013-01-01", text = "Governo Dilma", width = 100,height = 20)%>%
+    dyAnnotation("2018-01-01", text = "Governo Temer", width = 100,height = 20)%>%
+    dyAnnotation("2019-12-01", text = "Bolsonaro", width = 90,height = 20)
+  
+```
+
+```{r}
+title<- ""
+
+#Monta o gráfico dinâmico
+ dygraph(ts_bf,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)  %>%
+    dyShading(from = "2008-01-01", to = "2016-05-01") %>%
+    dyShading(from = "2016-06-01", to = "2020-08-01") %>%
+    dyAnnotation("2013-01-01", text = "Governos Lula-Dilma", width = 140,height = 20)%>%
+    dyAnnotation("2018-01-01", text = "Governos Temer-Bolsonaro", width = 120,height = 40)
+```
+
+
+Para o segundo grupo de extrapolação, divide-se a série temporal completa em duas outras. A primeira correspode ao período em que a chefia do poder executivo esteve com integrantes do Partido dos Trabalhadores, no caso os governos Lula e Dilma, e refere-se portanto ao período de Janeiro de 2008 até Maio de 2016. Já a segundo série corresponde ao período de governos conservadores que começa em JUnho de 2016 e prolonga-se na série analisada até Agosto de 2020.
+
+
+
+
+## Extrapolação do governo Lula para governo Dilma
+
+A série temporal completa é não estacionária. Isso incorreria na transformação através de deiferenciação para se chegar a uma série estacionaria a partir da qual seriam feitas as predições. Como vamos quebrar a série em várias partes ao longo das diversas comparações é possível, como já indicamos acima, que essas partes se comportem como séries estacionárias. 
+
+Para o primeiro bloco de projeções, não são feitos novos testes de estacionariedade. Além disso as projeções em si são feitas apenas para o primeiro ano do governo seguinte, baseadas apenas no uso da função **autro.arima** com os valores default. Essa opção é feita aqui dado que as séries são mais curtas o que diminui o poder de predição e tambem a identificação de fenômenos mais complexos como sazonailidade e tendências.
+
+O segundo bloco é o mais relevante para a análise por ter mais elementos de observação para a série temporal de refer^ncia, no caso o conjunto de observações dos governos Lula e Dilma. Com isso é possível ser feito uma projeção maior e também testes contemplando a existência de sazonalidade tendência. 
+
+Logo abaixo fazemos a primeira projeção, nesse caso o do primeiro ano do governo Dilma.
+
+```{r}
+library(forecast)
+library(xts)
+library(stringr)
+
+desp_ts_bf_alt<-
+Despesas_BF %>%
+  filter(Data>="2008-01-01",
+         Data<="2010-12-01" )
+
+#criar um objeto de série temporal para o período do governo Lula
+ts_lula<- ts(round(desp_ts_bf_alt[,3],0),start = c(2008,01),frequency = 12)
+
+# tseries::kpss.test(ts_lula)
+# tseries::adf.test(ts_lula)
+# tseries::pp.test(ts_lula)
+# 
+# plot(ts_lula)
+
+
+fit<-auto.arima(ts_lula)
+
+serie_dilma_forecast_mean <- round(forecast(fit,h=12)$mean,0)
+serie_dilma_forecast_max <- round(forecast(fit,h=12)$upper[,2],0)
+serie_dilma_forecast_min <- round(forecast(fit,h=12)$lower[,2],0)
+
+index<-str_c(rep("2011",12),c("01","02","03","04","05","06","07","08","09","10","11","12"), rep("01",12), sep = "-" )
+
+
+desp_ts_bf_alt<-
+Despesas_BF %>%
+  filter(Data>="2011-01-01",
+         Data<="2011-12-01" )
+
+#criar um objeto de série temporal para o período do governo Dilma
+ts_dilma<- ts(round(desp_ts_bf_alt[,3],0),start = c(2011,01),frequency = 12)
+
+
+
+
+
+previsto <- xts(c(serie_dilma_forecast_mean ), order.by = as.Date(index))
+max<- xts(c(serie_dilma_forecast_max ), order.by = as.Date(index))
+min<- xts(c(serie_dilma_forecast_min ), order.by = as.Date(index))
+observado<- xts(c(ts_dilma ), order.by = as.Date(index))
+
+
+xobj<- merge.xts(previsto, max, min, observado)
+
+
+
+title<- "Figura 4: Valores em R$ milhões"
+
+#Monta o gráfico dinâmico
+ dygraph(xobj,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+   dySeries() %>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)
+
+
+
+```
+
+
+## Extrapolação do governo Dilma para governo Temer
+
+```{r}
+
+desp_ts_bf_alt<-
+Despesas_BF %>%
+  filter(Data>="2008-01-01",
+         Data<="2016-05-01" )
+
+#criar um objeto de série temporal para o período do governo Lula
+ts_lula_dilma<- ts(desp_ts_bf_alt[,3],start = c(2008,01),frequency = 12)
+
+
+fit<-auto.arima(ts_lula_dilma)
+
+serie_temer_forecast_mean <- round(forecast(fit,h=12)$mean,0)
+serie_temer_forecast_max <- round(forecast(fit,h=12)$upper[,2],0)
+serie_temer_forecast_min <- round(forecast(fit,h=12)$lower[,2],0)
+
+index<-str_c(rep("2016",7),c("06", "07","08","09","10","11","12"), rep("01",7), sep = "-" )
+
+index<- c(index,str_c(rep("2017",5),c("01","02","03","04","05"), rep("01",5), sep = "-" ))
+
+desp_ts_bf_alt<-
+Despesas_BF %>%
+  filter(Data>="2016-06-01",
+         Data<="2017-05-01" )
+
+#criar um objeto de série temporal para o período do governo temer
+ts_temer<- ts(round(desp_ts_bf_alt[,3],0),start = c(2016,06),frequency = 12)
+
+
+
+
+
+previsto <- xts(c(serie_temer_forecast_mean ), order.by = as.Date(index))
+max<- xts(c(serie_temer_forecast_max ), order.by = as.Date(index))
+min<- xts(c(serie_temer_forecast_min ), order.by = as.Date(index))
+observado<- xts(c(ts_temer ), order.by = as.Date(index))
+
+
+xobj<- merge.xts(previsto, max, min, observado)
+
+
+
+title<- "Figura 5: Valores em R$ milhões"
+
+#Monta o gráfico dinâmico
+ dygraph(xobj,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+   dySeries() %>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)
+
+
+
+```
+
+## Extrapolação do governo Temer para governo Bolsonaro
+
+
+
+```{r}
+
+desp_ts_bf_alt<-
+Despesas_BF %>%
+  filter(Data>="2008-01-01",
+         Data<="2018-12-01" )
+
+#criar um objeto de série temporal para o período dos governo Lula a temer
+ts_lula_dilma_temer<- ts(desp_ts_bf_alt[,3],start = c(2008,01),frequency = 12)
+
+
+fit<-auto.arima(ts_lula_dilma_temer)
+
+serie_bolsonaro_forecast_mean <- round(forecast(fit,h=12)$mean,0)
+serie_bolsonaro_forecast_max <- round(forecast(fit,h=12)$upper[,2],0)
+serie_bolsonaro_forecast_min <- round(forecast(fit,h=12)$lower[,2],0)
+
+index<-str_c(rep("2019",12),c("01","02","03","04","05","06", "07","08","09","10","11","12"), rep("01",12), sep = "-" )
+
+
+
+desp_ts_bf_alt<-
+Despesas_BF %>%
+  filter(Data>="2019-01-01",
+         Data<="2019-12-01" )
+
+#criar um objeto de série temporal para o período do governo bolsonaro
+ts_bolsonaro<- ts(round(desp_ts_bf_alt[,3],0),start = c(2019,01),frequency = 12)
+
+
+
+
+
+previsto <- xts(c(serie_bolsonaro_forecast_mean ), order.by = as.Date(index))
+max<- xts(c(serie_bolsonaro_forecast_max ), order.by = as.Date(index))
+min<- xts(c(serie_bolsonaro_forecast_min ), order.by = as.Date(index))
+observado<- xts(c(ts_bolsonaro ), order.by = as.Date(index))
+
+
+xobj<- merge.xts(previsto, max, min, observado)
+
+
+
+title<- "Figura 6: Valores em R$ milhões"
+
+#Monta o gráfico dinâmico
+ dygraph(xobj,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+   dySeries() %>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)
+
+
+
+```
+
+
+## Extrapolação dos governos do PT para governos conservadores
+
+
+Testes de estacionariedade para as duas séries Lula-Dilma e Temer-Bolsonaro.
+
+Primeiro o teste para Lula-Dilma
+
+```{r}
+
+bolsa.familia<- Despesas_BF %>%
+  filter(Data>="2008-01-01")
+
+bf_luladilma <- ts(bolsa.familia$valor, start = c(2008,01), end = c(2016,05), frequency = 12)
+
+bf_temerbolsonaro <- ts( round((Despesas_BF %>%
+  filter(Data>="2016-06-01"))$valor,0), start = c(2016,06), end = c(2019,11), frequency = 12)
+
+#testes de raiz unitaria para periodo Lula Dilma
+tseries::kpss.test(bf_luladilma) #p menor q 10% rejeita hipótese nula de estacionariedade, serie nao estacionaria
+tseries::adf.test(bf_luladilma) # H0=nao estacionariedade, p maior q10% rejeita H0, serie nao estacionaria (mas é estacionária ao longo de uma tendência determinística)
+
+tseries::pp.test(bf_luladilma) # H0=nao estacionariedade, p maior q10% rejeita H0, serie nao estacionaria (mas é estacionária ao longo de uma tendência determinística)
+
+
+```
+
+
+E aqui testes para Bolsonaro-Temer
+
+```{r}
+#testes de raiz unitaria para periodo Temer Bolsonaro
+tseries::kpss.test(bf_temerbolsonaro) # serie estacionaria
+tseries::adf.test(bf_temerbolsonaro)  # H0=nao estacionariedade, p maior q10% rejeita H0, serie nao estacionaria (mas é estacionária ao longo de uma tendência determinística)
+tseries::pp.test(bf_temerbolsonaro) # H0=nao estacionariedade, p maior q10% rejeita H0, serie nao estacionaria (mas é estacionária ao longo de uma tendência determinística)
+```
+
+Como pode ser visto, o período completo do bloco Lula-Dilma permanece com a característica de não estacionariedade da série completa, enquanto que no bloco Temer-Bolsonaro dois dos testes apontam para estacionariedade da série.
+
+Logo abaixo mostramos o gráfico para a projeção. É importante observar aqui o gráfico mostra apenas o resultado final de uma série de testes feitos para encontrar a melhor curva. esses testes incluíram os efeitos de sazanoalidade e tendência sobre a projeção da série de referência. A decisão pela melhor série foi feita medindo os efeitos da projeção nos resíduos. Optou-se pelo modelo que minimizava a média desses resíduos.
+
+```{r}
+library(chron)
+
+fit<-Arima(bf_luladilma,order=c(1,0,1),seasonal =c(0,1,1),include.drift = T )
+
+
+
+#fit<-auto.arima(bf_luladilma)
+
+serie_temer_bolsonaro_forecast_mean <- round(forecast(fit,h=42)$mean,0)
+serie_temer_bolsonaro_forecast_max <- round(forecast(fit,h=42)$upper[,2],0)
+serie_temer_bolsonaro_forecast_min <- round(forecast(fit,h=42)$lower[,2],0)
+
+
+previsto <- xts(c(serie_temer_bolsonaro_forecast_mean ), order.by = as.Date(seq.dates("06/01/2016", "11/01/2019", by = "months")))
+max<- xts(c(serie_temer_bolsonaro_forecast_max ), order.by = as.Date(seq.dates("06/01/2016", "11/01/2019", by = "months")))
+min<- xts(c(serie_temer_bolsonaro_forecast_min ), order.by = as.Date(seq.dates("06/01/2016", "11/01/2019", by = "months")))
+observado<- xts(c(bf_temerbolsonaro ), order.by = as.Date(seq.dates("06/01/2016", "11/01/2019", by = "months")))
+
+
+xobj<- merge.xts(previsto, max, min, observado)
+
+
+
+title<- "Figura 7: Valores em R$ milhões"
+
+#Monta o gráfico dinâmico
+ dygraph(xobj,main= title, width="100%") %>%
+    dyRangeSelector() %>%
+    dyAxis(name= 'y', 
+              valueFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}', axisLabelFormatter = 'function(d){return d.toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ".");}') %>% #,valueRange = c(y_min,y_max*1.05)
+    #dyLegend(show = 'follow', hideOnMouseOut = TRUE)%>%
+    dyOptions(connectSeparatedPoints = TRUE, maxNumberWidth = 30)%>%
+   dySeries() %>%
+    dyOptions( drawGrid = FALSE) %>%
+    dyHighlight(highlightCircleSize = 5)
+
+```
+
+# Discussão dos resultados
+
+Observando os achados das predições feitas, é possível indicar que:
+
+- No primeiro ano do governo Dilma os valores apareceram em sua maioria no limie ou acima da margem superior da predição
+- No primeiro ano do governo Temer os valores ficaram entre a média e a margem superior da predição
+- No primeiro ano do governo Bolsonaro percebe-se que os valores permaneceram em linha com a média da projeção, com alguns valores abaixo dessa média. Importante também destacar a ocorrência do outlier de Novembro de 2019 que faz com que as projeções fiquem sem efeito.
+- Na análise dos dois blocos de governo, percebe-se que há uma probabilidade maior de estacionariedade na segundo bloco e continuidade da projeção em linha com a média.
+- Os valores de outilier decorrentes tanto do outlier de nvoembro de 2019, mas principalmente dos efeitos da pandemia trazem dificuldades adicionais para resultados de projeções para além de novembro de 2019.
+
+# Conclusões
+
+A partir do conjunto de elementos trazidos nesse trabalho, é possível concluir que:
+
+- As projeções a partir de séries com mais observações e com testes de diversos parâmetros são mais apropriadas do qeu as que são feitas a partir de serie menores e sem testes de carcaterísticas como tendência e sazonalidade.
+- Nos dois conjuntos de testes realizados é possível concluir que do ponto de vista da execução da despesa, o programa Bolsa Família parece estar legitimado. Não há evidências de que a execução tenha ocorrido abaixo do limite esperado de predição para os períodos que não abrangem os outliers. Isso se observa tanbo nas transições entre governos como entre blocos de governo
+- A pandemia traz sérias implicações para a execução das políticas fiscais. Isso pode ser observado nessa série temporal do PBF, mas também como em várias das que compõem o resultado do tesouro nacional. Esse fnômeno ocorre tanto nas receitas como nas despesas. É bem possível que o instrumental utilizado neste trabalho para fazer projeções não seja suficiente para novas projeções que envolvam os períodos associados ao combate à pandemia e aos seus efeitos.
+- Por conta do relatado logo acima, recomenda-se que novos estudos feitos a partir de agora busquem observar as descontinuidades bruscas que caracterizam fortes quebras de estrutrua e mesmo mudanças de tendência e sazonalidade.
